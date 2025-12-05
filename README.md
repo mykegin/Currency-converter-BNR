@@ -1,0 +1,1 @@
+# ProiectPython2025MVG
