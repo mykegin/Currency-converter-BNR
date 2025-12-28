@@ -9,18 +9,21 @@ CACHE_FILE = "rates_cache.json"
 
 
 def fetch_and_parse_rates():
-    response = requests.get(BNR_URL, timeout=10)
-    response.raise_for_status()
+    try:
+        response = requests.get(BNR_URL, timeout=10)
+        response.raise_for_status()
+        root = ET.fromstring(response.text)
+    except (requests.RequestException, ET.ParseError) as e:
+        raise RuntimeError(f"Failed to fetch or parse BNR rates: {e}")
 
-    root = ET.fromstring(response.text)
+    namespace = {"bnr": "http://www.bnr.ro/xsd"}
 
     rates = {"RON": 1.0}
 
-    for rate in root.iter("Rate"):
+    for rate in root.findall(".//bnr:Rate", namespace):
         currency = rate.attrib.get("currency")
         multiplier = int(rate.attrib.get("multiplier", "1"))
         value = float(rate.text)
-
         rates[currency] = value / multiplier
 
     return {
@@ -46,15 +49,17 @@ def save_to_cache(data):
 
 
 def get_rates():
-    cached = load_from_cache()
-    if cached:
-        print("Loaded rates from cache")
-        return cached
-
-    print("Fetching rates from BNR")
-    data = fetch_and_parse_rates()
-    save_to_cache(data)
-    return data
+    try:
+        print("Fetching rates from BNR")
+        data = fetch_and_parse_rates()
+        save_to_cache(data)
+        return data
+    except RuntimeError:
+        cached = load_from_cache()
+        if cached:
+            print("Using cached rates (BNR unavailable)")
+            return cached
+        raise
 
 
 if __name__ == "__main__":
