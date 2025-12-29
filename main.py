@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
+from datetime import datetime, timedelta
 
 from bnr_rates import get_rates
 from converter import convert, ConversionError
@@ -11,13 +12,14 @@ class CurrencyConverterApp:
         self.root = root
         self.root.title("Currency Converter (BNR)")
         self.root.resizable(False, False)
-        self.root.geometry("420x280")
+        self.root.geometry("420x300")
 
         self.data = None
         self.rates = {}
+        self.using_cached = False
 
         self.build_ui()
-        self.load_rates_async()
+        self.load_rates_async(auto=True)
 
     def build_ui(self):
         padding = {"padx": 10, "pady": 5}
@@ -41,26 +43,31 @@ class CurrencyConverterApp:
         self.convert_btn.grid(row=3, column=0, columnspan=2, pady=10)
 
         self.result_label = ttk.Label(self.root, text="Result: -", font=("Segoe UI", 11, "bold"))
-        self.result_label.grid(row=4, column=0, columnspan=2, pady=10)
+        self.result_label.grid(row=4, column=0, columnspan=3, pady=5)
 
-        ttk.Separator(self.root).grid(row=5, column=0, columnspan=2, sticky="ew", pady=5)
+        self.banner_label = ttk.Label(self.root, text="", foreground="red", font=("Segoe UI", 9))
+        self.banner_label.grid(row=5, column=0, columnspan=3)
+
+        ttk.Separator(self.root).grid(row=6, column=0, columnspan=3, sticky="ew", pady=5)
 
         self.refresh_btn = ttk.Button(self.root, text="Refresh rates", command=self.load_rates_async)
-        self.refresh_btn.grid(row=6, column=0, **padding)
+        self.refresh_btn.grid(row=7, column=0, **padding)
 
         self.update_label = ttk.Label(self.root, text="Last update: -", font=("Segoe UI", 9))
-        self.update_label.grid(row=6, column=1, **padding)
+        self.update_label.grid(row=7, column=1, columnspan=2, sticky="w", **padding)
 
-    def load_rates_async(self):
+    def load_rates_async(self, auto=False):
         self.refresh_btn.config(state="disabled")
-        threading.Thread(target=self.load_rates, daemon=True).start()
+        threading.Thread(target=self.load_rates, args=(auto,), daemon=True).start()
 
-    def load_rates(self):
+    def load_rates(self, auto):
         try:
             data = get_rates()
+            self.using_cached = False
             self.root.after(0, self.update_rates_ui, data)
-        except Exception as e:
-            self.root.after(0, lambda: messagebox.showerror("Error", str(e)))
+        except Exception:
+            self.using_cached = True
+            self.root.after(0, self.show_cached_warning)
 
     def update_rates_ui(self, data):
         self.data = data
@@ -70,12 +77,17 @@ class CurrencyConverterApp:
         self.from_currency["values"] = currencies
         self.to_currency["values"] = currencies
 
-        if "RON" in currencies:
+        if not self.from_currency.get():
             self.from_currency.set("RON")
-        if "EUR" in currencies:
+        if not self.to_currency.get() and "EUR" in currencies:
             self.to_currency.set("EUR")
 
         self.update_label.config(text=f"Last update: {data['timestamp']}")
+        self.banner_label.config(text="")
+        self.refresh_btn.config(state="normal")
+
+    def show_cached_warning(self):
+        self.banner_label.config(text="Offline mode: using cached rates")
         self.refresh_btn.config(state="normal")
 
     def swap_currencies(self):
