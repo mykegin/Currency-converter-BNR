@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 import threading
 from datetime import datetime, timedelta
 
-from bnr_rates import get_rates
+from bnr_rates import get_rates, is_cache_valid
 from converter import convert, ConversionError
 
 
@@ -83,12 +83,26 @@ class CurrencyConverterApp:
             self.to_currency.set("EUR")
 
         self.update_label.config(text=f"Last update: {data['timestamp']}")
-        self.banner_label.config(text="")
+
+        # Banner daca datele sunt vechi
+        if not is_cache_valid(data):
+            self.banner_label.config(
+                text="Warning: using cached rates (older than 24h)",
+                foreground="orange"
+            )
+        else:
+            self.banner_label.config(text="")
+
         self.refresh_btn.config(state="normal")
 
+
     def show_cached_warning(self):
-        self.banner_label.config(text="Offline mode: using cached rates")
+        self.banner_label.config(
+            text="Offline mode: using cached rates (may be outdated)",
+            foreground="red"
+        )
         self.refresh_btn.config(state="normal")
+
 
     def swap_currencies(self):
         from_cur = self.from_currency.get()

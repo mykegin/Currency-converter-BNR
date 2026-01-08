@@ -6,9 +6,15 @@ from datetime import datetime
 
 BNR_URL = "https://www.bnr.ro/nbrfxrates.xml"
 CACHE_FILE = "rates_cache.json"
-
+CACHE_MAX_AGE = 24 * 60 * 60
 
 def fetch_and_parse_rates():
+
+    """
+    Descarca cursurile de la BNR, le parseaza din XML
+    si returneaza un dictionar cu ratele valutare
+    """
+
     try:
         response = requests.get(BNR_URL, timeout=10)
         response.raise_for_status()
@@ -33,6 +39,9 @@ def fetch_and_parse_rates():
 
 
 def load_from_cache():
+    """
+    Incarca datele din fisierul cache daca exista
+    """
     if not os.path.exists(CACHE_FILE):
         return None
 
@@ -42,6 +51,16 @@ def load_from_cache():
     except (json.JSONDecodeError, IOError):
         return None
 
+def is_cache_valid(cached_data):
+    """
+    Verifica daca datele din cache sunt mai noi de 24h
+    """
+    try:
+        cache_time = datetime.fromisoformat(cached_data["timestamp"])
+        age_seconds = (datetime.now() - cache_time).total_seconds()
+        return age_seconds < CACHE_MAX_AGE
+    except Exception:
+        return False
 
 def save_to_cache(data):
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
@@ -49,13 +68,29 @@ def save_to_cache(data):
 
 
 def get_rates():
+    """
+    Decide inteligent:
+    - foloseste cache daca e valid (<24h)
+    - refetch daca e expirat
+    - fallback la cache daca BNR pica
+    """
+
+    cached = load_from_cache()
+
+    # Daca avem cache si e valid, il folosim direct
+    if cached and is_cache_valid(cached):
+        print("Using cached rates (still valid)")
+        return cached
+
+    # Altfel incercam fetch live
     try:
         print("Fetching rates from BNR")
         data = fetch_and_parse_rates()
         save_to_cache(data)
         return data
+
     except RuntimeError:
-        cached = load_from_cache()
+        # Daca fetch-ul pica, dar avem cache vechi
         if cached:
             print("Using cached rates (BNR unavailable)")
             return cached
