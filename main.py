@@ -19,7 +19,7 @@ class CurrencyConverterApp:
         self.using_cached = False
 
         self.build_ui()
-        self.load_rates_async(auto=True)
+        self.load_rates_async(auto=True) # porneste auto-fetch la startup
 
     def build_ui(self):
         padding = {"padx": 10, "pady": 5}
