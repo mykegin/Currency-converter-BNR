@@ -1,5 +1,3 @@
-# ProiectPython2025MVG
-
 # Currency Converter (BNR)
 
 A desktop currency converter built with Python and Tkinter that uses official exchange rates from the National Bank of Romania (BNR).  
